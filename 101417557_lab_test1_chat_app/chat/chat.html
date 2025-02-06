@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="group_selection">
+    <div class="search-container">
+      <!-- Group Category Selection -->
+      <h2>Select a Group</h2>
+      <input type="text" id="group_search" placeholder="Enter group name">
+      <select id="group_category">
+        <option value="">Select Category</option>
+        <option>DevOps</option>
+        <option>Cloud computing</option>
+        <option>COVID-19</option>
+        <option>Sports</option>
+        <option>NodeJS</option>
+      </select>
+      <button id="join_group_btn">Join</button>
+    </div>
+  </div>
+
+  <div id="chat_interface">
+    <div class="chat-container">
+      <div class="chat-header">
+        <h2 id="group_title">Group Chat</h2>
+        <div>
+          <button class="leave-group" id="leave_group_btn">Leave Group</button>
+          <button class="logout-btn" id="logout_btn">Logout</button>
+        </div>
+      </div>
+      <div class="chat-box" id="chat_box"></div>
+      <div class="chat-input">
+        <input type="text" id="message_input" placeholder="Type your message here...">
+        <button id="send_message_btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // setup of socket client, viewable from terminal with its id
+    const socketClient = io();
+
+    // DOM elements insertion for use in JS
+    const groupCategory = document.getElementById('group_selection');
+    const groupSearchInput = document.getElementById('group_search');
+    const groupCategorySelect = document.getElementById('group_category');
+    const joinGroupBtn = document.getElementById('join_group_btn');
+    const chatInterface = document.getElementById('chat_interface');
+    const chatBox = document.getElementById('chat_box');
+    const messageInput = document.getElementById('message_input');
+    const sendMessageBtn = document.getElementById('send_message_btn');
+    const leaveGroupBtn = document.getElementById('leave_group_btn');
+    const logoutBtn = document.getElementById('logout_btn');
+    const groupTitle = document.getElementById('group_title');
+    let currentGroup = '';
+
+    // Event listener when the user joins a group
+    joinGroupBtn.addEventListener('click', () => {
+      const groupName = groupSearchInput.value.trim();
+      const category = groupCategorySelect.value;
+      // checks for allowance of group entry, if conditions are met
+      if (groupName && category) {
+        currentGroup = groupName;
+        groupTitle.textContent = groupName;
+        socketClient.emit('join_group', groupName);
+        groupCategory.style.display = 'none';
+        chatInterface.style.display = 'flex';
+      } else {
+        alert('Please enter a group name and select a category.');
+      }
+    });
+
+    // Messaging event to allow user to send chat contributions
+    sendMessageBtn.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      if (message) {
+        const username = localStorage.getItem('username') || 'Unknown';
+        socketClient.emit('group_message', {
+          message: message,
+          group: currentGroup,
+          senderName: username
+        });
+        messageInput.value = '';
+      }
+    });
+
+    socketClient.on('group_message', (data) => {
+      if (data.group === currentGroup) {
+        const msgElement = document.createElement('p');
+        msgElement.textContent = (data.senderName || 'Unknown') + ': ' + data.message;
+        chatBox.appendChild(msgElement);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+
+    // Leave event activation, for user to exit a group
+    leaveGroupBtn.addEventListener('click', () => {
+      socketClient.emit('leave_group', currentGroup);
+      // this does not save any previous conversations
+      chatBox.innerHTML = '';
+      currentGroup = '';
+      chatInterface.style.display = 'none';
+      groupSearchInput.value = '';
+      groupCategorySelect.value = '';
+    });
+
+    // logout event activation, for complete user exit
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('username');
+      localStorage.removeItem('isLoggedIn');
+      window.location.href = '/';
+    });
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* CSS for group selection */
+    #group_selection {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f4f4f4;
+    }
+
+    .search-container {
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .search-container h2 {
+      margin-bottom: 20px;
+    }
+
+    .search-container input,
+    .search-container select {
+      padding: 10px;
+      margin: 10px 0;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .search-container button {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #4846b9;
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    /* CSS for chat interface */
+    #chat_interface {
+      display: none;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    .chat-container {
+      width: 800px;
+      margin: 100px auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      height: 80vh;
+    }
+
+    .chat-header {
+      padding: 10px 20px;
+      background: #4846b9;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header button.leave-group {
+      background: red;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
+    .logout-btn {
+      background: #222;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
+    .chat-box {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+
+    .chat-input {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
+    .chat-input button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      background: #4846b9;
+      border: none;
+      color: white;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    #typing_indicator {
+      display: none;
+      padding: 5px;
+      color: #888;
+    }
+  </style>
+</body>
+</html>
